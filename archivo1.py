@@ -84,21 +84,19 @@ def pyspark_transform(spark, df, param_dict):
         if not row:
             return []
 
-        def get(c):
-            return getattr(row, c, None)
-
-        producto_ordenante = get("producto_ordenante")
-        producto_beneficiario = get("producto_beneficiario")
-        numero_documento_original = get("numero_documento_original")
-        periodo = get("periodo")
-        periodo_tope = get("periodo_tope")
-        guid_ordenante = get("guid_ordenante")
-        guid_beneficiario = get("guid_beneficiario")
+        producto_ordenante = getattr(row, "producto_ordenante", None)
+        producto_beneficiario = getattr(row, "producto_beneficiario", None)
+        numero_documento_original = getattr(row, "numero_documento_original", None)
+        periodo = getattr(row, "periodo", None)
+        periodo_tope = getattr(row, "periodo_tope", None)
+        guid_ordenante = getattr(row, "guid_ordenante", None)
+        guid_beneficiario = getattr(row, "guid_beneficiario", None)
 
         if not (
             producto_ordenante and producto_beneficiario and numero_documento_original
         ):
             return []
+
         global thread_local
         if "thread_local" not in globals():
             thread_local = threading.local()
