@@ -33,6 +33,7 @@ def pyspark_transform(spark, df, param_dict):
         import os
         import stat
         import shutil
+        import tempfile
         from decimal import Decimal
         from datetime import date, datetime
 
@@ -56,13 +57,19 @@ def pyspark_transform(spark, df, param_dict):
             or thread_local.db_connection.closed != 0
         ):
             orig_key_path = key_cert_str
-            new_key_path = f"/tmp/llave_segura_{threading.get_ident()}.pkcs8"
-            try:
-                if not os.path.exists(new_key_path):
-                    shutil.copyfile(orig_key_path, new_key_path)
-                    os.chmod(new_key_path, stat.S_IRUSR | stat.S_IWUSR)
-            except Exception:
-                pass
+            
+            if not hasattr(thread_local, "secure_key_path") or not os.path.exists(thread_local.secure_key_path):
+                try:
+                    fd, temp_path = tempfile.mkstemp(prefix="llave_segura_", suffix=".pkcs8")
+                    os.close(fd)
+                    shutil.copyfile(orig_key_path, temp_path)
+                    os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR)
+                    thread_local.secure_key_path = temp_path
+                except Exception:
+                    pass
+            
+            new_key_path = getattr(thread_local, "secure_key_path", orig_key_path)
+            
             jdbc_url = "{{{JDBC_PG_DATA_ACP_REPLICA}}}"
             clean_url = jdbc_url.replace("jdbc:postgresql://", "").split("?")[0]
             host_port, dbname = clean_url.split("/")
@@ -262,6 +269,3 @@ def pyspark_transform(spark, df, param_dict):
     )
 
     return df_final
-
-
-
