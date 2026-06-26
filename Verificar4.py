@@ -31,9 +31,11 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
                 "basic.auth.user.info": kafka_conf_vals["sr.auth"],
             }
         )
-        schema_tango_cache = sr_client_driver.get_schema(
-            {{{Transf_PRY_PaymentHub.P_ID_SCHEMA_SALDOS}}}
-        )
+
+        schema_id_str = "{{{Transf_PRY_PaymentHub.P_ID_SCHEMA_SALDOS}}}"
+        schema_id = int(schema_id_str) if schema_id_str.isdigit() else schema_id_str
+
+        schema_tango_cache = sr_client_driver.get_schema(schema_id)
 
     schema_str = schema_tango_cache
 
@@ -96,4 +98,3 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
         p.flush()
 
     df.rdd.foreachPartition(send_partition)
-
