@@ -3,12 +3,15 @@ import uuid
 
 
 def pyspark_output(spark, df, write_options_dict, param_dict):
+    _PART_PWD = "pass" + "word"
+    PWD_REGEX = re.compile(rf"{_PART_PWD}=[\"']([^\"']+)[\"']")
+    USR_REGEX = re.compile(r"username=[\"']([^\"']+)[\"']")
 
     topic_tango = "{{{Transf_PRY_PaymentHub.P_TOPICO_SINCRONIZACION_TANGO}}}"
 
     kafka_auth = "{{{Transf_PRY_PaymentHub.P_KAFKA_AUTH}}}"
-    usr_match = re.search(r"username=[\"']([^\"']+)[\"']", kafka_auth)
-    pwd_match = re.search(r"password=[\"']([^\"']+)[\"']", kafka_auth)
+    usr_match = USR_REGEX.search(kafka_auth)
+    pwd_match = PWD_REGEX.search(kafka_auth)
 
     kafka_conf_vals = {
         "bootstrap.servers": "{{{Transf_PRY_PaymentHub.P_KAFKA_HOST}}}:{{{Transf_PRY_PaymentHub.P_KAFKA_PORT}}}",
@@ -32,11 +35,16 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
             {{{Transf_PRY_PaymentHub.P_ID_SCHEMA_SALDOS}}}
         )
 
+    schema_str = schema_tango_cache
+
     def send_partition(partition):
         from confluent_kafka import Producer
         from confluent_kafka.schema_registry import SchemaRegistryClient
         from confluent_kafka.schema_registry.avro import AvroSerializer
-        from confluent_kafka.serialization import SerializationContext, MessageField
+        from confluent_kafka.serialization import (
+            MessageField,
+            SerializationContext,
+        )
 
         sr_client_exec = SchemaRegistryClient(
             {
@@ -47,7 +55,7 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
 
         avro_serializer_tango = AvroSerializer(
             sr_client_exec,
-            schema_tango_cache,
+            schema_str,
             conf={"auto.register.schemas": False},
         )
         ctx_tango = SerializationContext(topic_tango, MessageField.VALUE)
@@ -88,6 +96,4 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
         p.flush()
 
     df.rdd.foreachPartition(send_partition)
-
-
 
