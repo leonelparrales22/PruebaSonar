@@ -3,9 +3,17 @@ import uuid
 
 
 def pyspark_output(spark, df, write_options_dict, param_dict):
+    _ = (spark, write_options_dict, param_dict)
+
     _PART_PWD = "pass" + "word"
     PWD_REGEX = re.compile(rf"{_PART_PWD}=[\"']([^\"']+)[\"']")
     USR_REGEX = re.compile(r"username=[\"']([^\"']+)[\"']")
+
+    K_BOOTSTRAP = "bootstrap.servers"
+    K_USERNAME = "sasl.username"
+    K_PASSWORD = "sasl.password"
+    K_SR_URL = "sr.url"
+    K_SR_AUTH = "sr.auth"
 
     topic_sincronizacion_cupos = (
         "{{{Transf_PRY_CargaInicial.P_TOPICO_SINCRONIZACION_CUPOS}}}"
@@ -16,11 +24,11 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
     pwd_match = PWD_REGEX.search(kafka_auth)
 
     kafka_conf_vals = {
-        "bootstrap.servers": "{{{Transf_PRY_PaymentHub.P_KAFKA_HOST}}}:{{{Transf_PRY_PaymentHub.P_KAFKA_PORT}}}",
-        "sasl.username": usr_match.group(1) if usr_match else "",
-        "sasl.password": pwd_match.group(1) if pwd_match else "",
-        "sr.url": "{{{Transf_PRY_PaymentHub.P_SCHEMA_REGISTRY_URL}}}",
-        "sr.auth": "{{{Transf_PRY_PaymentHub.P_SCHEMA_REGISTRY_AUTH}}}",
+        K_BOOTSTRAP: "{{{Transf_PRY_PaymentHub.P_KAFKA_HOST}}}:{{{Transf_PRY_PaymentHub.P_KAFKA_PORT}}}",
+        K_USERNAME: usr_match.group(1) if usr_match else "",
+        K_PASSWORD: pwd_match.group(1) if pwd_match else "",
+        K_SR_URL: "{{{Transf_PRY_PaymentHub.P_SCHEMA_REGISTRY_URL}}}",
+        K_SR_AUTH: "{{{Transf_PRY_PaymentHub.P_SCHEMA_REGISTRY_AUTH}}}",
     }
 
     global schema_sincronizacion_cupos_cache
@@ -29,14 +37,14 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
 
         sr_client_driver = SchemaRegistryClient(
             {
-                "url": kafka_conf_vals["sr.url"],
-                "basic.auth.user.info": kafka_conf_vals["sr.auth"],
+                "url": kafka_conf_vals[K_SR_URL],
+                "basic.auth.user.info": kafka_conf_vals[K_SR_AUTH],
             }
         )
-        
+
         schema_id_str = "{{{Transf_PRY_CargaInicial.P_ID_SCHEMA_CUPOS}}}"
         schema_id = int(schema_id_str) if schema_id_str.isdigit() else schema_id_str
-        
+
         schema_sincronizacion_cupos_cache = sr_client_driver.get_schema(
             schema_id
         ).schema_str
@@ -54,8 +62,8 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
 
         sr_client_exec = SchemaRegistryClient(
             {
-                "url": kafka_conf_vals["sr.url"],
-                "basic.auth.user.info": kafka_conf_vals["sr.auth"],
+                "url": kafka_conf_vals[K_SR_URL],
+                "basic.auth.user.info": kafka_conf_vals[K_SR_AUTH],
             }
         )
 
@@ -70,11 +78,11 @@ def pyspark_output(spark, df, write_options_dict, param_dict):
 
         p = Producer(
             {
-                "bootstrap.servers": kafka_conf_vals["bootstrap.servers"],
+                K_BOOTSTRAP: kafka_conf_vals[K_BOOTSTRAP],
                 "security.protocol": "SASL_SSL",
                 "sasl.mechanism": "PLAIN",
-                "sasl.username": kafka_conf_vals["sasl.username"],
-                "sasl.password": kafka_conf_vals["sasl.password"],
+                K_USERNAME: kafka_conf_vals[K_USERNAME],
+                K_PASSWORD: kafka_conf_vals[K_PASSWORD],
                 "client.id": f"pyspark-producer-{uuid.uuid4()}",
                 "enable.idempotence": True,
                 "linger.ms": 5,
